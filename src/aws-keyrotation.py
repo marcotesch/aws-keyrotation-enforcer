@@ -1,6 +1,10 @@
 '''AWS KeyRotation Enforcer Module, can be used to enforce that AWS Access Keys are rotated regularly'''
 
+import os
+import sys
 import boto3
+import logging
+from datetime import datetime, timedelta, tzinfo
 
 
 def __getAwsIamUserList(iamClient):
@@ -43,7 +47,38 @@ def __getAwsAccessKeyAge(iamClient, iamUsers):
     return iamAccessKeys
 
 
+def __getNotifyKeyAgeDate(ageDays):
+    '''get datetime before which a notification should be send out'''
+    notifyKeyAgeDate = datetime.now() - timedelta(days=ageDays)
+    return notifyKeyAgeDate
+
+
+def __identifyKeyAges(iamAccessKeys, notifyKeyAgeDate):
+    '''identify all old Access Keys'''
+
+    for iamAccessKey in iamAccessKeys['Keys']:
+        for accessKeyInfo in iamAccessKey['AccessKeyInfos']:
+            if accessKeyInfo['CreateDate'].replace(tzinfo=None) < notifyKeyAgeDate:
+                print('Found one!')
+
+
 if __name__ == "__main__":
+
+    logging.basicConfig(stream=sys.stdout)
+    logger = logging.getLogger('aws-keyrotation')
+    logger.setLevel(logging.INFO)
+
+    try:
+        notifyKeyAge = int(os.environ['NOTIFYKEYAGE'])
+    except KeyError:
+        logger.info(
+            'No NOTIFYKEYAGE environment variable found. Fallback to default (Days=30)')
+        notifyKeyAge = 30
+
+    notifyKeyAgeDate = __getNotifyKeyAgeDate(notifyKeyAge)
+
     iamClient = boto3.client('iam')
     iamUsers = __getAwsIamUserList(iamClient)
     iamAccessKeys = __getAwsAccessKeyAge(iamClient, iamUsers)
+
+    __identifyKeyAges(iamAccessKeys, notifyKeyAgeDate)
