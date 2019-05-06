@@ -49,6 +49,7 @@ def __getAwsAccessKeyAge(iamClient, iamUsers):
 
 
 def __getUserEmail(iamClient, userName):
+    '''get user e-mail adresse from credential/user tags'''
     response = iamClient.get_user(UserName=userName)
     try:
         foundContact = False
@@ -76,14 +77,20 @@ def __getNotifyKeyAgeDate(ageDays):
     return notifyKeyAgeDate
 
 
-def __identifyKeyAges(iamAccessKeys, notifyKeyAgeDate):
+def __getDeactivateKeyAgeDate(ageDays):
+    '''get datetime before which a key is deactivated'''
+    notifyKeyAgeDate = datetime.now() - timedelta(days=ageDays)
+    return notifyKeyAgeDate
+
+
+def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyAgeDate):
     '''identify all old Access Keys'''
     sesClient = boto3.client('ses', region_name='eu-west-1')
     logger = logging.getLogger('aws-keyrotation')
 
     for iamAccessKey in iamAccessKeys['Keys']:
         for accessKeyInfo in iamAccessKey['AccessKeyInfos']:
-            if accessKeyInfo['CreateDate'].replace(tzinfo=None) < notifyKeyAgeDate:
+            if accessKeyInfo['CreateDate'].replace(tzinfo=None) < notifyKeyAgeDate and not accessKeyInfo['CreateDate'].replace(tzinfo=None) < deactivateKeyAgeDate and accessKeyInfo['AccessKeyStatus'] == 'Active':
                 logger.info('Old AWS Credentials found!')
 
                 if not accessKeyInfo['ContactDetails'] == '':
@@ -96,8 +103,20 @@ def __identifyKeyAges(iamAccessKeys, notifyKeyAgeDate):
                         'Contact details for credentials not provided!'
                     )
 
+            elif accessKeyInfo['CreateDate'].replace(tzinfo=None) < deactivateKeyAgeDate and accessKeyInfo['AccessKeyStatus'] == 'Active':
+                iamClient.update_access_key(
+                    UserName=iamAccessKey['UserName'],
+                    AccessKeyId=accessKeyInfo['AccessKeyId'],
+                    Status='Inactive'
+                )
+                logger.critical(
+                    'AWS Access Key, with ID: ' +
+                    accessKeyInfo['AccessKeyId'] + ' is now disabled.'
+                )
+
 
 def __notifyKeyAges(sesClient, keyInfo):
+    '''Notify technical contact, that credential needs to be rotated'''
     logger = logging.getLogger('aws-keyrotation')
 
     try:
@@ -146,12 +165,16 @@ if __name__ == "__main__":
         logger.info(
             'Fallback to default (Days=30)'
         )
-        notifyKeyAge = 10
+        notifyKeyAge = 30
+
+    deactivateKeyAge = notifyKeyAge + 7
 
     notifyKeyAgeDate = __getNotifyKeyAgeDate(notifyKeyAge)
+    deactivateKeyAgeDate = __getDeactivateKeyAgeDate(deactivateKeyAge)
 
     iamClient = boto3.client('iam')
     iamUsers = __getAwsIamUserList(iamClient)
     iamAccessKeys = __getAwsAccessKeyAge(iamClient, iamUsers)
 
-    __identifyKeyAges(iamAccessKeys, notifyKeyAgeDate)
+    __identifyKeyAges(iamClient, iamAccessKeys,
+                      notifyKeyAgeDate, deactivateKeyAgeDate)
