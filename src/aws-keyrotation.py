@@ -35,7 +35,8 @@ def __getAwsAccessKeyAge(iamClient, iamUsers):
             accessKeyInfos.append({
                 'AccessKeyId': accessKey['AccessKeyId'],
                 'AccessKeyStatus': accessKey['Status'],
-                'CreateDate': accessKey['CreateDate']
+                'CreateDate': accessKey['CreateDate'],
+                'ContactDetails': __getUserEmail(iamClient, iamUser['UserName'])
             })
 
         if len(accessKeyInfos) > 0:
@@ -47,6 +48,28 @@ def __getAwsAccessKeyAge(iamClient, iamUsers):
     return iamAccessKeys
 
 
+def __getUserEmail(iamClient, userName):
+    response = iamClient.get_user(UserName=userName)
+    try:
+        foundContact = False
+        contactEmail = ''
+
+        for tag in response['User']['Tags']:
+            if tag['Key'] == 'Contact E-Mail':
+                foundContact = True
+                contactEmail = tag['Value']
+                break
+
+        if not foundContact:
+            raise KeyError
+
+    except KeyError:
+        logger = logging.getLogger('aws-keyrotation')
+        logger.warning('Contact details for user not provided!')
+
+    return contactEmail
+
+
 def __getNotifyKeyAgeDate(ageDays):
     '''get datetime before which a notification should be send out'''
     notifyKeyAgeDate = datetime.now() - timedelta(days=ageDays)
@@ -55,11 +78,57 @@ def __getNotifyKeyAgeDate(ageDays):
 
 def __identifyKeyAges(iamAccessKeys, notifyKeyAgeDate):
     '''identify all old Access Keys'''
+    sesClient = boto3.client('ses', region_name='eu-west-1')
+    logger = logging.getLogger('aws-keyrotation')
 
     for iamAccessKey in iamAccessKeys['Keys']:
         for accessKeyInfo in iamAccessKey['AccessKeyInfos']:
             if accessKeyInfo['CreateDate'].replace(tzinfo=None) < notifyKeyAgeDate:
-                print('Found one!')
+                logger.info('Old AWS Credentials found!')
+
+                if not accessKeyInfo['ContactDetails'] == '':
+                    logger.info('Notification will be send to: ' +
+                                accessKeyInfo['ContactDetails'])
+
+                    __notifyKeyAges(sesClient, accessKeyInfo)
+                else:
+                    logger.warning(
+                        'Contact details for credentials not provided!'
+                    )
+
+
+def __notifyKeyAges(sesClient, keyInfo):
+    logger = logging.getLogger('aws-keyrotation')
+
+    try:
+        sourceMail = os.environ['SOURCEMAIL']
+    except KeyError:
+        logger.warning('SOURCEMAIL environment variable not found')
+        return
+
+    try:
+        response = sesClient.send_email(
+            Source=sourceMail,
+            Destination={
+                'ToAddresses': [
+                    keyInfo['ContactDetails'],
+                ]
+            },
+            Message={
+                'Subject': {
+                    'Data': 'Rotate your AWS Credentials (KeyID: ' + keyInfo['AccessKeyId'] + ')'
+                },
+                'Body': {
+                    'Text': {
+                        'Data': 'Dear ' + keyInfo['ContactDetails'] + ',\n\nPlease rotate your AWS Access Key immediately.\n It will be disabled otherwise shortly if not rotated.\n\n Your AWS Keyrotation Service'
+                    }
+                }
+            }
+        )
+
+        print(response)
+    except:
+        logger.warning('Notification could not be send!')
 
 
 if __name__ == "__main__":
@@ -72,8 +141,12 @@ if __name__ == "__main__":
         notifyKeyAge = int(os.environ['NOTIFYKEYAGE'])
     except KeyError:
         logger.info(
-            'No NOTIFYKEYAGE environment variable found. Fallback to default (Days=30)')
-        notifyKeyAge = 30
+            'NOTIFYKEYAGE environment variable not found.'
+        )
+        logger.info(
+            'Fallback to default (Days=30)'
+        )
+        notifyKeyAge = 10
 
     notifyKeyAgeDate = __getNotifyKeyAgeDate(notifyKeyAge)
 
