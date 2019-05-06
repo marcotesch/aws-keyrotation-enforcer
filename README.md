@@ -1,2 +1,12 @@
 # aws-keyrotation-enforcer
 AWS Lambda Skripts to automatically enforce the rotation of AWS Access Keys with a certain age.
+
+Used Environment Variables:
+- SOURCEMAIL: Used as source E-Mail adresse in AWS SES
+- NOTIFYKEYAGE: Key age in days after which a notification will be send to the technical contact
+
+> The Key age for deactivation is calculated based on the NOTIFYKEYAGE. It is greater by 7 days, meaning the user has 7 days to rotate the AWS Access Key after he recieved the first notice. If the key is not rotated within that timeframe the key will be deactivated.
+
+A sample diagramm on how the script is intended to be used can be seen below:
+
+![Architecture Diagramm](assets/aws-keyrotation-enforcer.svg)
