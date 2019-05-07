@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  aws-keyrotation-enforcer
+
+  Sample SAM Template for aws-keyrotation-enforcer deployment
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  AwsKeyrotationEnforcerFunctionEventTrigger:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "Schedule Event for AWS Keyrotation Enforcer"
+      ScheduleExpression: "cron(0 8 * * ? *)"
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !GetAtt AwsKeyrotationEnforcerFunction.Arn
+          Id: "TargetLambdaFunction"
+
+  AwsKeyrotationEnforcerFunctionInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref AwsKeyrotationEnforcerFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt AwsKeyrotationEnforcerFunctionEventTrigger.Arn
+
+  AwsKeyrotationEnforcerFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: src/
+      Handler: aws-keyrotation.lambda_handler
+      Runtime: python3.7
+      Environment:
+        Variables:
+          NOTIFYKEYAGE: 10
+          SOURCEMAIL: "<add valid mail here>"
+      Role: !GetAtt AwsKeyrotationEnforcerFunctionIamRole.Arn
+
+  AwsKeyrotationEnforcerFunctionIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com" 
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      
+  AwsKeyrotationEnforcerFunctionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "IAM Policy (least generic privilege) for AWS Keyrotation Enforcer Lambda Function"
+      Path: "/"
+      Roles:
+        - !Ref AwsKeyrotationEnforcerFunctionIamRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Action: 
+              - "iam:GetUser"
+              - "iam:ListAccessKeys"
+              - "iam:UpdateAccessKey"
+            Resource: "arn:aws:iam::*:user/*"
+          -
+            Effect: "Allow"
+            Action:
+              - "iam:ListUsers"
+              - "iam:ListUserTags"
+            Resource: "*"
+          - 
+            Effect: "Allow"
+            Action: "logs:CreateLogGroup"
+            Resource: "arn:aws:logs:*:*:*"
+          -
+            Effect: "Allow"
+            Action: "ses:SendEmail"
+            Resource: "arn:aws:ses:*:*:identity/*"
+          -
+            Effect: "Allow"
+            Action: 
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: "arn:aws:logs:*:*:log-group:/aws/lambda/*:*"
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  AwsKeyrotationEnforcerFunction:
+    Description: "AWS Keyrotation Enforcer Lambda Function ARN"
+    Value: !GetAtt AwsKeyrotationEnforcerFunction.Arn
+  AwsKeyrotationEnforcerFunctionIamRole:
+    Description: "Implicit IAM Role created for AWS Keyrotation Enforcer function"
+    Value: !GetAtt AwsKeyrotationEnforcerFunctionIamRole.Arn

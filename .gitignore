@@ -106,5 +106,8 @@ venv.bak/
 # vscode
 .vscode
 
+# AWS SAM
+**/.aws-sam
+
 # zip files
 *.zip
