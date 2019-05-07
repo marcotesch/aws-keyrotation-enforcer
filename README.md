@@ -10,3 +10,29 @@ Used Environment Variables:
 A sample diagramm on how the script is intended to be used can be seen below:
 
 ![Architecture Diagramm](assets/aws-keyrotation-enforcer.svg)
+
+## Needed AWS IAM Permissions for Execution
+
+The following minimal permissions are needed in Order for the Lambda Function to work properly.
+
+```javascript
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetUser",
+        "iam:ListAccessKeys",
+        "iam:UpdateAccessKey"
+      ],
+      "Resource": "arn:aws:iam::*:user/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:ListUsers",
+      "Resource": "*"
+    }
+  ]
+}
+```
