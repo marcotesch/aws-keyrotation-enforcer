@@ -2,7 +2,7 @@
 AWS Lambda Skripts to automatically enforce the rotation of AWS Access Keys with a certain age.
 
 Used Environment Variables:
-- SOURCEMAIL: Used as source E-Mail adresse in AWS SES
+- SOURCEMAIL (required): Used as source E-Mail adresse in AWS SES
 - NOTIFYKEYAGE: Key age in days after which a notification will be send to the technical contact
 
 > The Key age for deactivation is calculated based on the NOTIFYKEYAGE. It is greater by 7 days, meaning the user has 7 days to rotate the AWS Access Key after he recieved the first notice. If the key is not rotated within that timeframe the key will be deactivated.
@@ -30,8 +30,31 @@ The following minimal permissions are needed in Order for the Lambda Function to
     },
     {
       "Effect": "Allow",
-      "Action": "iam:ListUsers",
+      "Action": [
+        "iam:ListUsers",
+        "iam:ListUserTags"
+      ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "logs:CreateLogGroup",
+      "Resource": "arn:aws:logs:*:*:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ses:SendEmail",
+      "Resource": "arn:aws:ses:*:*:identity/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/aws/lambda/*:*"
+      ]
     }
   ]
 }
