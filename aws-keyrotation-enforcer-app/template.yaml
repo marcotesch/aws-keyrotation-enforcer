@@ -51,6 +51,12 @@ Resources:
           SOURCEMAIL: !Ref SourceMail
       Role: !GetAtt AwsKeyrotationEnforcerFunctionIamRole.Arn
 
+  AwsKeyrotationEnforcerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties : 
+      LogGroupName : !Sub "/aws/lambda/${AwsKeyrotationEnforcerFunction}"
+      RetentionInDays : 7
+
   AwsKeyrotationEnforcerFunctionIamRole:
     Type: AWS::IAM::Role
     Properties:
