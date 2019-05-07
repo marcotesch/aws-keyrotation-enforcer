@@ -1,4 +1,4 @@
-# aws-keyrotation-enforcer
+# AWS Keyrotation Enforcer
 AWS Lambda Skripts to automatically enforce the rotation of AWS Access Keys with a certain age.
 
 Used Environment Variables:
@@ -62,6 +62,9 @@ The following minimal permissions are needed in Order for the Lambda Function to
 
 ## Sample Deployment using AWS SAM
 
-A sample AWS SAM application that could be used for the Lambda Function deployment is present in the folder [aws-keyrotation-enforcer-app](aws-keyrotation-enforcer-app/). Important is to provide a AWS SES validated source e-mail adresse within the [aws-keyrotation-enforcer-app template](aws-keyrotation-enforcer-app/template.yaml) to get the notification part of the lambda function working.
+A sample AWS SAM application that could be used for the Lambda Function deployment is present in the folder [aws-keyrotation-enforcer-app](aws-keyrotation-enforcer-app/). The deployment has two parameters which need to be provided:
+
+- SourceMail (required): AWS SES validated source e-mail address
+- NotifyKeyAge (optional): WS Credential Age after which a notification should be send (default 30 days)
 
 The AWS SAM Deployment also creates the CloudWatch Event Rule that triggers the AWS Lambda function. The rule is at the moment configured to run at 8 AM UTC every day of the week.
