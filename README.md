@@ -1,4 +1,4 @@
-# aws-keyrotation-enforcer
+# AWS Keyrotation Enforcer
 AWS Lambda Skripts to automatically enforce the rotation of AWS Access Keys with a certain age.
 
 Used Environment Variables:
