@@ -11,6 +11,25 @@ Globals:
     Timeout: 30
 
 Resources:
+  AwsKeyrotationEnforcerFunctionEventTrigger:
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "Schedule Event for AWS Keyrotation Enforcer"
+      ScheduleExpression: "cron(0 8 * * ? *)"
+      State: "ENABLED"
+      Targets: 
+        - 
+          Arn: !GetAtt AwsKeyrotationEnforcerFunction.Arn
+          Id: "TargetLambdaFunction"
+
+  AwsKeyrotationEnforcerFunctionInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref AwsKeyrotationEnforcerFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt AwsKeyrotationEnforcerFunctionEventTrigger.Arn
+
   AwsKeyrotationEnforcerFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
