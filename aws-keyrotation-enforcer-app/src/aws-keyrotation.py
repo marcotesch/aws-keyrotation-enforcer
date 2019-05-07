@@ -4,6 +4,8 @@ import os
 import sys
 import boto3
 import logging
+import re
+
 from datetime import datetime, timedelta, tzinfo
 
 
@@ -119,11 +121,22 @@ def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyA
 def __notifyKeyAges(sesClient, keyInfo):
     '''Notify technical contact, that credential needs to be rotated'''
     logger = logging.getLogger('aws-keyrotation')
+    mailPattern = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 
     try:
         sourceMail = os.environ['SOURCEMAIL']
+
+        if re.match(mailPattern, sourceMail) is not None:
+            logger.info('Valid E-Mail adresse provided')
+        else:
+            raise SyntaxError
+
     except KeyError:
         logger.warning('SOURCEMAIL environment variable not found')
+        return
+    except SyntaxError:
+        logger.warning('SOURCEMAIL is not a valid e-mail.')
+        logger.warning('Notifications will not be send.')
         return
 
     try:
@@ -176,6 +189,8 @@ def lambda_handler(event, context):
 
     __identifyKeyAges(iamClient, iamAccessKeys,
                       notifyKeyAgeDate, deactivateKeyAgeDate)
+
+    return
 
 
 if __name__ == "__main__":
