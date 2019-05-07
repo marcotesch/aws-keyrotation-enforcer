@@ -51,12 +51,14 @@ def __getAwsAccessKeyAge(iamClient, iamUsers):
 def __getUserEmail(iamClient, userName):
     '''get user e-mail adresse from credential/user tags'''
     response = iamClient.get_user(UserName=userName)
+
+    logger = logging.getLogger('aws-keyrotation')
     try:
         foundContact = False
         contactEmail = ''
 
         for tag in response['User']['Tags']:
-            if tag['Key'] == 'Contact E-Mail':
+            if tag['Key'] == 'Contact':
                 foundContact = True
                 contactEmail = tag['Value']
                 break
@@ -65,7 +67,6 @@ def __getUserEmail(iamClient, userName):
             raise KeyError
 
     except KeyError:
-        logger = logging.getLogger('aws-keyrotation')
         logger.warning('Contact details for user not provided!')
 
     return contactEmail
@@ -126,7 +127,7 @@ def __notifyKeyAges(sesClient, keyInfo):
         return
 
     try:
-        response = sesClient.send_email(
+        sesClient.send_email(
             Source=sourceMail,
             Destination={
                 'ToAddresses': [
@@ -144,14 +145,11 @@ def __notifyKeyAges(sesClient, keyInfo):
                 }
             }
         )
-
-        print(response)
     except:
         logger.warning('Notification could not be send!')
 
 
-if __name__ == "__main__":
-
+def lambda_handler(event, context):
     logging.basicConfig(stream=sys.stdout)
     logger = logging.getLogger('aws-keyrotation')
     logger.setLevel(logging.INFO)
@@ -178,3 +176,7 @@ if __name__ == "__main__":
 
     __identifyKeyAges(iamClient, iamAccessKeys,
                       notifyKeyAgeDate, deactivateKeyAgeDate)
+
+
+if __name__ == "__main__":
+    lambda_handler(None, None)
