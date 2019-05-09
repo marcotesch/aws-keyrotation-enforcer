@@ -112,10 +112,61 @@ def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyA
                     AccessKeyId=accessKeyInfo['AccessKeyId'],
                     Status='Inactive'
                 )
+
+                if not accessKeyInfo['ContactDetails'] == '':
+                    logger.info('Notification will be send to: ' +
+                                accessKeyInfo['ContactDetails'])
+
+                    __notifyDeactivation(sesClient, accessKeyInfo)
+
                 logger.critical(
                     'AWS Access Key, with ID: ' +
                     accessKeyInfo['AccessKeyId'] + ' is now disabled.'
                 )
+
+
+def __notifyDeactivation(sesClient, keyInfo):
+    '''Notify technical contact, that credential is deactivated'''
+    logger = logging.getLogger('aws-keyrotation')
+    mailPattern = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
+
+    try:
+        sourceMail = os.environ['SOURCEMAIL']
+
+        if re.match(mailPattern, sourceMail) is not None:
+            logger.info('Valid E-Mail adresse provided')
+        else:
+            raise SyntaxError
+
+    except KeyError:
+        logger.warning('SOURCEMAIL environment variable not found')
+        return
+    except SyntaxError:
+        logger.warning('SOURCEMAIL is not a valid e-mail.')
+        logger.warning('Notification can not be send.')
+        return
+
+    try:
+        sesClient.send_email(
+            Source=sourceMail,
+            Destination={
+                'ToAddresses': [
+                    keyInfo['ContactDetails'],
+                ]
+            },
+            Message={
+                'Subject': {
+                    'Data': 'Deactivated your AWS Credentials (KeyID: ' + keyInfo['AccessKeyId'] + ')'
+                },
+                'Body': {
+                    'Text': {
+                        'Data': 'Dear ' + keyInfo['ContactDetails'] + ',\n\nYour AWS Access Key is now deactivated.\n Please create a new AWS Access Key to regain programmatic AWS Access, if needed.\n\n Your AWS Keyrotation Service'
+                    }
+                }
+            }
+        )
+    except:
+        logger.warning('Notification was not send!')
 
 
 def __notifyKeyAges(sesClient, keyInfo):
