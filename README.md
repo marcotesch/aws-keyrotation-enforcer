@@ -64,7 +64,7 @@ The following minimal permissions are needed in Order for the Lambda Function to
 
 A sample AWS SAM application that could be used for the Lambda Function deployment is present in the folder [aws-keyrotation-enforcer-app](aws-keyrotation-enforcer-app/). The deployment has two parameters which need to be provided:
 
-- SourceMail (required): AWS SES validated source e-mail address
+- SourceMail (required for notification): AWS SES validated source e-mail address
 - NotifyKeyAge (optional): WS Credential Age after which a notification should be send (default 30 days)
 
 The AWS SAM Deployment also creates the CloudWatch Event Rule that triggers the AWS Lambda function. The rule is at the moment configured to run at 8 AM UTC every day of the week.
