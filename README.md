@@ -32,7 +32,9 @@ The following minimal permissions are needed in Order for the Lambda Function to
       "Effect": "Allow",
       "Action": [
         "iam:ListUsers",
-        "iam:ListUserTags"
+        "iam:ListUserTags",
+        "ses:GetIdentityVerificationAttributes",
+        "ses:ListIdentities"
       ],
       "Resource": "*"
     },
@@ -69,14 +71,11 @@ A sample AWS SAM application that could be used for the Lambda Function deployme
 
 The AWS SAM Deployment also creates the CloudWatch Event Rule that triggers the AWS Lambda function. The rule is at the moment configured to run at 8 AM UTC every day of the week.
 
-## Prerequisites in v0.2.0
+## Prerequisites in v0.3.0
 
-At the moment some manual steps are needed as prerequisites to get the notifications working with AWS SES in Sandbox Mode. Therefore in AWS SES the used source e-mail address and the technical contact e-mail addresses need to be validated.
+In v0.3.0 the verification and validation of AWS SES E-Mail Identities is automatically handled.
 
-Validation of
-
-- Source E-Mail Address
-- Technical Contact E-Mail Address
+> As the API enforces that a verification request could only be send once per second, the AWS Lambda Timeout needs to be set accordingly high to verify all used E-Mail addresses.
 
 As well the IAM entities using static credentials (in this case AWS IAM User) need to be Tagged according to the following Scheme
 
