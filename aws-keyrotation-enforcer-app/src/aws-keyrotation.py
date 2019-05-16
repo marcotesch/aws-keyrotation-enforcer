@@ -6,6 +6,7 @@ import boto3
 import logging
 import re
 
+from time import sleep
 from datetime import datetime, timedelta, tzinfo
 
 
@@ -69,7 +70,8 @@ def __getUserEmail(iamClient, userName):
             raise KeyError
 
     except KeyError:
-        logger.warning('Contact details for user not provided!')
+        logger.warning('Contact details for user (' +
+                       userName + ') not provided!')
 
     return contactEmail
 
@@ -86,7 +88,7 @@ def __getDeactivateKeyAgeDate(ageDays):
     return notifyKeyAgeDate
 
 
-def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyAgeDate):
+def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyAgeDate, verifiedIdentities):
     '''identify all old Access Keys'''
     sesClient = boto3.client('ses', region_name='eu-west-1')
     logger = logging.getLogger('aws-keyrotation')
@@ -100,7 +102,8 @@ def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyA
                     logger.info('Notification will be send to: ' +
                                 accessKeyInfo['ContactDetails'])
 
-                    __notifyKeyAges(sesClient, accessKeyInfo)
+                    __notifyKeyAges(sesClient, accessKeyInfo,
+                                    verifiedIdentities)
                 else:
                     logger.warning(
                         'Contact details for credentials not provided!'
@@ -117,7 +120,8 @@ def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyA
                     logger.info('Notification will be send to: ' +
                                 accessKeyInfo['ContactDetails'])
 
-                    __notifyDeactivation(sesClient, accessKeyInfo)
+                    __notifyDeactivation(
+                        sesClient, accessKeyInfo, verifiedIdentities)
 
                 logger.critical(
                     'AWS Access Key, with ID: ' +
@@ -125,7 +129,7 @@ def __identifyKeyAges(iamClient, iamAccessKeys, notifyKeyAgeDate, deactivateKeyA
                 )
 
 
-def __notifyDeactivation(sesClient, keyInfo):
+def __notifyDeactivation(sesClient, keyInfo, verifiedIdentities):
     '''Notify technical contact, that credential is deactivated'''
     logger = logging.getLogger('aws-keyrotation')
     mailPattern = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
@@ -135,6 +139,17 @@ def __notifyDeactivation(sesClient, keyInfo):
 
         if re.match(mailPattern, sourceMail) is not None:
             logger.info('Valid E-Mail adresse provided')
+
+            if not sourceMail in verifiedIdentities:
+                logger.info('SOURCEMAIL not yet verified')
+                logger.info('Sending verification request to SES')
+
+                __verifyIdentity(sesClient, sourceMail)
+                logger.warning(
+                    'Notification can\'t be send until SOURCEMAIL is verified'
+                )
+                return
+
         else:
             raise SyntaxError
 
@@ -147,6 +162,20 @@ def __notifyDeactivation(sesClient, keyInfo):
         return
 
     try:
+
+        if not keyInfo['ContactDetails'] in verifiedIdentities:
+            logger.info('Contact e-mail address (' +
+                        keyInfo['ContactDetails'] + ') not yet verified')
+            logger.info('Sending verification request to SES')
+
+            __verifyIdentity(sesClient, keyInfo['ContactDetails'])
+            logger.warning(
+                'Notification can\'t be send until contact e-mail address (' +
+                keyInfo['ContactDetails'] + ') is verified'
+            )
+
+            return
+
         sesClient.send_email(
             Source=sourceMail,
             Destination={
@@ -165,11 +194,12 @@ def __notifyDeactivation(sesClient, keyInfo):
                 }
             }
         )
-    except:
-        logger.warning('Notification was not send!')
+    except sesClient.exceptions.MessageRejected as ex:
+        logger.warning('An unexpected Error occured!')
+        logger.warning(ex)
 
 
-def __notifyKeyAges(sesClient, keyInfo):
+def __notifyKeyAges(sesClient, keyInfo, verifiedIdentities):
     '''Notify technical contact, that credential needs to be rotated'''
     logger = logging.getLogger('aws-keyrotation')
     mailPattern = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
@@ -179,6 +209,17 @@ def __notifyKeyAges(sesClient, keyInfo):
 
         if re.match(mailPattern, sourceMail) is not None:
             logger.info('Valid E-Mail adresse provided')
+
+            if not sourceMail in verifiedIdentities:
+                logger.info('SOURCEMAIL not yet verified')
+                logger.info('Sending verification request to SES')
+
+                __verifyIdentity(sesClient, sourceMail)
+                logger.warning(
+                    'Notification can\'t be send until SOURCEMAIL is verified'
+                )
+                return
+
         else:
             raise SyntaxError
 
@@ -191,6 +232,20 @@ def __notifyKeyAges(sesClient, keyInfo):
         return
 
     try:
+
+        if not keyInfo['ContactDetails'] in verifiedIdentities:
+            logger.info('Contact e-mail address (' +
+                        keyInfo['ContactDetails'] + ') not yet verified')
+            logger.info('Sending verification request to SES')
+
+            __verifyIdentity(sesClient, keyInfo['ContactDetails'])
+            logger.warning(
+                'Notification can\'t be send until contact e-mail address (' +
+                keyInfo['ContactDetails'] + ') is verified'
+            )
+
+            return
+
         sesClient.send_email(
             Source=sourceMail,
             Destination={
@@ -209,8 +264,34 @@ def __notifyKeyAges(sesClient, keyInfo):
                 }
             }
         )
-    except:
-        logger.warning('Notification could not be send!')
+    except sesClient.exceptions.MessageRejected as ex:
+        logger.warning('An unexpected Error occured!')
+        logger.warning(ex)
+
+
+def __listIdentities(sesClient):
+    response = sesClient.list_identities(IdentityType='EmailAddress')
+    identities = response['Identities']
+
+    response = sesClient.get_identity_verification_attributes(
+        Identities=identities)
+
+    verificationAttributes = response['VerificationAttributes']
+    verifiedIdentities = []
+
+    for identity in verificationAttributes:
+        if verificationAttributes[identity]['VerificationStatus'] == 'Success':
+            verifiedIdentities.append(identity)
+        else:
+            sesClient.delete_identity(Identity=identity)
+            sleep(1)
+
+    return verifiedIdentities
+
+
+def __verifyIdentity(sesClient, identity):
+    sesClient.verify_email_identity(EmailAddress=identity)
+    sleep(1)
 
 
 def lambda_handler(event, context):
@@ -235,11 +316,15 @@ def lambda_handler(event, context):
     deactivateKeyAgeDate = __getDeactivateKeyAgeDate(deactivateKeyAge)
 
     iamClient = boto3.client('iam')
+    sesClient = sesClient = boto3.client('ses', region_name='eu-west-1')
+
+    verifiedIdentities = __listIdentities(sesClient)
+
     iamUsers = __getAwsIamUserList(iamClient)
     iamAccessKeys = __getAwsAccessKeyAge(iamClient, iamUsers)
 
     __identifyKeyAges(iamClient, iamAccessKeys,
-                      notifyKeyAgeDate, deactivateKeyAgeDate)
+                      notifyKeyAgeDate, deactivateKeyAgeDate, verifiedIdentities)
 
     return
 
