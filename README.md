@@ -2,7 +2,7 @@
 AWS Lambda Skripts to automatically enforce the rotation of AWS Access Keys with a certain age.
 
 Used Environment Variables:
-- SOURCEMAIL (required): Used as source E-Mail adresse in AWS SES
+- SOURCEMAIL (required): Used as source E-Mail addresse in AWS SES
 - NOTIFYKEYAGE: Key age in days after which a notification will be send to the technical contact
 
 > The Key age for deactivation is calculated based on the NOTIFYKEYAGE. It is greater by 7 days, meaning the user has 7 days to rotate the AWS Access Key after he recieved the first notice. If the key is not rotated within that timeframe the key will be deactivated.
@@ -75,11 +75,14 @@ The AWS SAM Deployment also creates the CloudWatch Event Rule that triggers the 
 
 ## Prerequisites in v0.3.x
 
-In v0.3.0 the verification and validation of AWS SES E-Mail Identities is automatically handled.
+In v0.3.x the verification and validation of AWS SES E-Mail Identities is automatically handled. This includes the following types:
 
-> As the API enforces that a verification request could only be send once per second, the AWS Lambda Timeout needs to be set accordingly high to verify all used E-Mail addresses.
+- SOURCEMAIL address provided via AWS SAM parameter as the e-mail sender
+- Technical Contact addresses provided via `Contact` tag
 
-As well the IAM entities using static credentials (in this case AWS IAM User) need to be Tagged according to the following Scheme
+> As the AWS SES API enforces that some verification request could only be send once per second, the AWS Lambda Timeout needs to be set accordingly high to verify all used E-Mail addresses.
+
+IAM entities using static credentials (in this case AWS IAM users) need to be tagged according to the following scheme
 
 | Key     | Value                                |
 | ------- | ------------------------------------ |
