@@ -33,6 +33,7 @@ The following minimal permissions are needed in Order for the Lambda Function to
       "Action": [
         "iam:ListUsers",
         "iam:ListUserTags",
+        "ses:DeleteIdentity",
         "ses:GetIdentityVerificationAttributes",
         "ses:ListIdentities"
       ],
@@ -71,7 +72,7 @@ A sample AWS SAM application that could be used for the Lambda Function deployme
 
 The AWS SAM Deployment also creates the CloudWatch Event Rule that triggers the AWS Lambda function. The rule is at the moment configured to run at 8 AM UTC every day of the week.
 
-## Prerequisites in v0.3.0
+## Prerequisites in v0.3.x
 
 In v0.3.0 the verification and validation of AWS SES E-Mail Identities is automatically handled.
 
