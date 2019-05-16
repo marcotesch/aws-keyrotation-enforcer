@@ -35,7 +35,8 @@ The following minimal permissions are needed in Order for the Lambda Function to
         "iam:ListUserTags",
         "ses:DeleteIdentity",
         "ses:GetIdentityVerificationAttributes",
-        "ses:ListIdentities"
+        "ses:ListIdentities",
+        "ses:VerifyEmailIdentity"
       ],
       "Resource": "*"
     },
