@@ -92,6 +92,8 @@ Resources:
             Action:
               - "iam:ListUsers"
               - "iam:ListUserTags"
+              - "ses:GetIdentityVerificationAttributes"
+              - "ses:ListIdentities"
             Resource: "*"
           - 
             Effect: "Allow"
